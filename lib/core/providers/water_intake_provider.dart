@@ -33,14 +33,15 @@ class WaterIntakeState {
 class WaterIntakeNotifier extends StateNotifier<WaterIntakeState> {
   final IWaterRepository _waterRepository;
   final Ref _ref;
+  late final Future<void> _initialLoad;
 
   WaterIntakeNotifier(this._waterRepository, this._ref)
     : super(WaterIntakeState(currentIntake: 0, dailyGoal: 2000, unit: 'ml')) {
     _syncWithUserPreferences();
     // Load today's intake if we have a real repository
-    if (_waterRepository is! DummyWaterRepository) {
-      _loadTodaysIntake();
-    }
+    _initialLoad = _waterRepository is DummyWaterRepository
+        ? Future.value()
+        : _loadTodaysIntake();
   }
 
   Future<void> _loadTodaysIntake() async {
@@ -69,6 +70,7 @@ class WaterIntakeNotifier extends StateNotifier<WaterIntakeState> {
   }
 
   Future<void> addWater(double amount) async {
+    await _initialLoad;
     // Convert to ml if needed
     final amountInMl = state.unit == 'oz' ? amount * 29.5735 : amount;
 
@@ -86,6 +88,7 @@ class WaterIntakeNotifier extends StateNotifier<WaterIntakeState> {
   }
 
   Future<void> resetDailyIntake() async {
+    await _initialLoad;
     // Clear today's water logs from storage
     final today = DateTime.now();
     await _waterRepository.clearWaterLogsForDate(today);

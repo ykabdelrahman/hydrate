@@ -51,6 +51,13 @@ final waterRepositoryProvider = Provider<IWaterRepository>((ref) {
 final userPreferencesRepositoryProvider = Provider<IUserPreferencesRepository>((
   ref,
 ) {
+  // AppInitializer opens this box before runApp. Use it immediately so a
+  // reminder change made on the first screen is saved to the real repository.
+  if (Hive.isBoxOpen('user_preferences')) {
+    return UserPreferencesRepositoryImpl(
+      Hive.box<UserPreferences>('user_preferences'),
+    );
+  }
   final userPreferencesBox = ref.watch(userPreferencesBoxProvider);
 
   return userPreferencesBox.when(

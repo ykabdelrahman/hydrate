@@ -35,12 +35,16 @@ void main() {
     testWidgets('quick add buttons add water', (tester) async {
       final mockWaterRepository = MockIWaterRepository();
       when(mockWaterRepository.addWaterLog(any)).thenAnswer((_) async => {});
+      when(
+        mockWaterRepository.getWaterLogsForDate(any),
+      ).thenAnswer((_) async => []);
+      when(mockWaterRepository.addDailySummary(any)).thenAnswer((_) async {});
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             waterIntakeNotifierProvider.overrideWith(
-              (ref) => WaterIntakeNotifier(mockWaterRepository),
+              (ref) => WaterIntakeNotifier(mockWaterRepository, ref),
             ),
           ],
           child: const MaterialApp(home: HomeScreen()),
@@ -48,13 +52,25 @@ void main() {
       );
 
       // Initial state
-      expect(find.text('Current Intake: 0 ml'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(CurrentIntakeDisplay),
+          matching: find.text('0'),
+        ),
+        findsOneWidget,
+      );
 
       // Tap 250ml button
-      await tester.tap(find.text('250ml'));
-      await tester.pump();
-      // Expect the state to be updated (this will fail until addWater is implemented)
-      // expect(find.text('Current Intake: 250 ml'), findsOneWidget);
+      final quickAddButton = find
+          .descendant(
+            of: find.byType(QuickAddButtons),
+            matching: find.byType(ElevatedButton),
+          )
+          .first;
+      await tester.ensureVisible(quickAddButton);
+      await tester.tap(quickAddButton);
+      await tester.pumpAndSettle();
+      verify(mockWaterRepository.addWaterLog(any)).called(1);
     });
   });
 }

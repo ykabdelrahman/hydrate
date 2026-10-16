@@ -1,20 +1,31 @@
+import 'dart:io' show Platform;
+
 import 'package:hive/hive.dart';
 import 'package:hydrate/core/domain/models/user_preferences.dart';
 import 'package:hydrate/core/services/background_notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 class AppInitializer {
   static UserPreferences? _cachedPreferences;
 
   static Future<void> initialize() async {
-    // Initialize background notification service
+    // One-time migration from the old WorkManager reminder implementation.
+    // Its one-off tasks had unique names, so cancelByUniqueName was insufficient.
     try {
-      await BackgroundNotificationService.initialize();
-      print('✅ Background notification service initialized');
+      final prefs = await SharedPreferences.getInstance();
+      if (Platform.isAndroid &&
+          !(prefs.getBool('water_reminders_workmanager_migrated') ?? false)) {
+        await BackgroundNotificationService.initialize();
+        await Workmanager().cancelAll();
+        await prefs.setBool('notifications_enabled', false);
+        await prefs.setBool('water_reminders_workmanager_migrated', true);
+      }
     } catch (e) {
-      print('❌ Failed to initialize background notification service: $e');
+      // Retry the migration on the next launch.
+      print('Failed to migrate old reminder tasks: $e');
     }
-    
+
     // Load preferences synchronously during app startup
     try {
       final box = await Hive.openBox<UserPreferences>('user_preferences');
@@ -26,7 +37,8 @@ class AppInitializer {
   }
 
   static UserPreferences getInitialPreferences() {
-    final preferences = _cachedPreferences ??
+    final preferences =
+        _cachedPreferences ??
         UserPreferences(
           dailyGoalMl: 2000,
           unit: 'ml',
@@ -34,10 +46,10 @@ class AppInitializer {
           darkModeEnabled: false,
           weightKg: 70,
         );
-    
+
     // Sync dark mode preference to SharedPreferences for background access
     _syncDarkModePreference(preferences.darkModeEnabled);
-    
+
     return preferences;
   }
 

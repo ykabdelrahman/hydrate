@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hydrate/core/providers/user_preferences_provider.dart';
@@ -16,7 +18,14 @@ class NotificationPreferences extends ConsumerWidget {
 
     return ListTile(
       title: const Text('Water Reminders'),
-      subtitle: Text('Remind me $intervalText'),
+      subtitle: FutureBuilder<bool>(
+        future: Platform.isAndroid
+            ? ref.read(notificationServiceProvider).canScheduleExactAlarms()
+            : Future.value(true),
+        builder: (context, snapshot) => Text(
+          'Remind me $intervalText${Platform.isAndroid && snapshot.data == false && userPreferences.notificationIntervalMinutes > 0 ? ' · timing may be delayed' : ''}',
+        ),
+      ),
       trailing: TextButton(
         onPressed: () {
           _showNotificationIntervalDialog(
@@ -75,7 +84,9 @@ class NotificationPreferences extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.1),
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(20),
                           topRight: Radius.circular(20),
@@ -91,17 +102,21 @@ class NotificationPreferences extends ConsumerWidget {
                           const SizedBox(height: 12),
                           Text(
                             'Water Reminder Interval',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'How often should I remind you to drink water?',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.7),
+                                ),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -116,7 +131,7 @@ class NotificationPreferences extends ConsumerWidget {
                             // All options in a scrollable single column
                             _buildIntervalOption(
                               context: context,
-                              title: 'Never', 
+                              title: 'Never',
                               subtitle: 'No reminders',
                               icon: Icons.notifications_off,
                               value: 0,
@@ -130,7 +145,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 15 minutes', 
+                              title: 'Every 15 minutes',
                               subtitle: 'Frequent hydration reminders',
                               icon: Icons.timer,
                               value: 15,
@@ -144,7 +159,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 30 minutes', 
+                              title: 'Every 30 minutes',
                               subtitle: 'Regular hydration schedule',
                               icon: Icons.schedule,
                               value: 30,
@@ -158,7 +173,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 45 minutes', 
+                              title: 'Every 45 minutes',
                               subtitle: 'Balanced hydration approach',
                               icon: Icons.access_time,
                               value: 45,
@@ -172,7 +187,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 1 hour', 
+                              title: 'Every 1 hour',
                               subtitle: 'Gentle hourly reminders',
                               icon: Icons.hourglass_bottom,
                               value: 60,
@@ -186,7 +201,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 1.5 hours', 
+                              title: 'Every 1.5 hours',
                               subtitle: 'Relaxed hydration schedule',
                               icon: Icons.update,
                               value: 90,
@@ -200,7 +215,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 2 hours', 
+                              title: 'Every 2 hours',
                               subtitle: 'Minimal hydration reminders',
                               icon: Icons.schedule,
                               value: 120,
@@ -214,7 +229,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 3 hours', 
+                              title: 'Every 3 hours',
                               subtitle: 'Basic hydration maintenance',
                               icon: Icons.timer_outlined,
                               value: 180,
@@ -228,7 +243,7 @@ class NotificationPreferences extends ConsumerWidget {
                             ),
                             _buildIntervalOption(
                               context: context,
-                              title: 'Every 4 hours', 
+                              title: 'Every 4 hours',
                               subtitle: 'Light hydration reminders',
                               icon: Icons.access_time_filled,
                               value: 240,
@@ -262,59 +277,94 @@ class NotificationPreferences extends ConsumerWidget {
                               Navigator.of(context).pop();
                             },
                             style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                             ),
                             child: const Text('Cancel'),
                           ),
                           const SizedBox(width: 16),
                           ElevatedButton(
                             onPressed: () async {
-                    // Request notification permissions if enabling notifications
-                    if (selectedIntervalMinutes > 0) {
-                      final notificationService = ref.read(
-                        notificationServiceProvider,
-                      );
-                      final hasPermission = await notificationService
-                          .requestPermissions();
+                              bool preciseTiming = true;
+                              // Request notification permissions if enabling notifications
+                              if (selectedIntervalMinutes > 0) {
+                                final notificationService = ref.read(
+                                  notificationServiceProvider,
+                                );
+                                final hasPermission = await notificationService
+                                    .requestPermissions();
 
-                      if (!hasPermission) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Notification permission denied. Please enable notifications in app settings.',
-                              ),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
-                        }
-                        return;
-                      }
-                    }
+                                if (!hasPermission) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Notification permission denied. Please enable notifications in app settings.',
+                                        ),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                if (Platform.isAndroid) {
+                                  try {
+                                    preciseTiming = await notificationService
+                                        .requestExactAlarmPermission();
+                                  } catch (_) {
+                                    preciseTiming = false;
+                                  }
+                                }
+                              }
 
-                    ref
-                        .read(userPreferencesProvider.notifier)
-                        .updateNotificationInterval(selectedIntervalMinutes);
+                              try {
+                                await ref
+                                    .read(userPreferencesProvider.notifier)
+                                    .updateNotificationInterval(
+                                      selectedIntervalMinutes,
+                                    );
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Could not schedule reminders: $error',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
 
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
 
-                      // Show confirmation
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            selectedIntervalMinutes == 0
-                                ? 'Water reminders disabled'
-                                : 'Water reminders set to ${_getIntervalText(selectedIntervalMinutes).toLowerCase()}',
-                          ),
-                          backgroundColor: Colors.green,
-                        ),
-                              );
-                            }
+                                // Show confirmation
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      selectedIntervalMinutes == 0
+                                          ? 'Water reminders disabled'
+                                          : preciseTiming
+                                          ? 'Water reminders set to ${_getIntervalText(selectedIntervalMinutes).toLowerCase()}'
+                                          : 'Reminders enabled with approximate timing. Allow Alarms & reminders for precise timing.',
+                                    ),
+                                    backgroundColor: preciseTiming
+                                        ? Colors.green
+                                        : Colors.orange,
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onPrimary,
                               elevation: 2,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -346,16 +396,18 @@ class NotificationPreferences extends ConsumerWidget {
     required Function(int?) onChanged,
   }) {
     final isSelected = selectedValue == value;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: isSelected 
+        color: isSelected
             ? iconColor.withOpacity(0.15)
-            : (value == 0 ? Colors.grey.withOpacity(0.05) : iconColor.withOpacity(0.06)),
+            : (value == 0
+                  ? Colors.grey.withOpacity(0.05)
+                  : iconColor.withOpacity(0.06)),
         border: Border.all(
-          color: isSelected 
+          color: isSelected
               ? iconColor.withOpacity(0.6)
               : iconColor.withOpacity(0.2),
           width: isSelected ? 2 : 1,
@@ -372,11 +424,11 @@ class NotificationPreferences extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: isSelected 
+                  color: isSelected
                       ? iconColor.withOpacity(0.25)
                       : iconColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
-                  border: isSelected 
+                  border: isSelected
                       ? Border.all(color: iconColor.withOpacity(0.4), width: 1)
                       : null,
                 ),
@@ -395,7 +447,9 @@ class NotificationPreferences extends ConsumerWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: isSelected ? iconColor : null,
                         fontSize: 14,
                       ),
@@ -405,10 +459,12 @@ class NotificationPreferences extends ConsumerWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 11,
-                        color: isSelected 
-                            ? iconColor.withOpacity(0.8) 
+                        color: isSelected
+                            ? iconColor.withOpacity(0.8)
                             : Colors.grey.shade600,
-                        fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.w500
+                            : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -441,15 +497,17 @@ class NotificationPreferences extends ConsumerWidget {
     required Function(int?) onChanged,
   }) {
     final isSelected = selectedValue == value;
-    
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: isSelected 
+        color: isSelected
             ? iconColor.withOpacity(0.15)
-            : (value == 0 ? Colors.grey.withOpacity(0.05) : iconColor.withOpacity(0.06)),
+            : (value == 0
+                  ? Colors.grey.withOpacity(0.05)
+                  : iconColor.withOpacity(0.06)),
         border: Border.all(
-          color: isSelected 
+          color: isSelected
               ? iconColor.withOpacity(0.6)
               : iconColor.withOpacity(0.2),
           width: isSelected ? 2 : 1,
@@ -466,7 +524,7 @@ class NotificationPreferences extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: isSelected 
+                  color: isSelected
                       ? iconColor.withOpacity(0.25)
                       : iconColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(3),
@@ -488,7 +546,9 @@ class NotificationPreferences extends ConsumerWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: isSelected ? iconColor : null,
                         fontSize: 10,
                         height: 1.1,
@@ -500,8 +560,8 @@ class NotificationPreferences extends ConsumerWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 8,
-                        color: isSelected 
-                            ? iconColor.withOpacity(0.8) 
+                        color: isSelected
+                            ? iconColor.withOpacity(0.8)
                             : Colors.grey.shade600,
                         height: 1.0,
                       ),

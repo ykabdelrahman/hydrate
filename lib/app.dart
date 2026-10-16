@@ -13,8 +13,48 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MainAppState();
 }
 
-class _MainAppState extends ConsumerState<MyApp> {
+class _MainAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  bool _hasResumed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!_hasResumed) {
+      _hasResumed = true;
+      return;
+    }
+    _repairReminderOnResume();
+  }
+
+  Future<void> _repairReminderOnResume() async {
+    // Allow an in-progress Settings save to finish after returning from the
+    // Android Alarms & reminders permission screen.
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    final service = ref.read(notificationServiceProvider);
+    if (!await service.areNotificationsEnabled()) return;
+    final interval = ref
+        .read(userPreferencesProvider)
+        .notificationIntervalMinutes;
+    try {
+      await service.scheduleIntervalReminders(interval);
+    } catch (error) {
+      debugPrint('Could not repair water reminder schedule: $error');
+    }
+  }
 
   static const List<Widget> _widgetOptions = <Widget>[
     HomeScreen(),
